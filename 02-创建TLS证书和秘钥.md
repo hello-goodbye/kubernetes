@@ -1,4 +1,6 @@
-`kubernetes` 系统的各组件需要使用 `TLS` 证书对通信进行加密，本文档使用 `CloudFlare` 的 PKI 工具集 [cfssl](https://github.com/cloudflare/cfssl) 来生成 Certificate Authority (CA) 和其它证书；
+# 创建 CA 证书和秘钥
+
+`kubernetes` 系统各组件需要使用 `TLS` 证书对通信进行加密，本文档使用 `CloudFlare` 的 PKI 工具集 [cfssl](https://github.com/cloudflare/cfssl) 来生成 Certificate Authority (CA) 证书和秘钥文件，CA 是自签名的证书，用来签名后续创建的其它 TLS 证书。
 
 **生成的 CA 证书和秘钥文件如下：**
 
@@ -151,6 +153,7 @@ ca-config.json  ca.csr  ca-csr.json  ca-key.pem  ca.pem
       "192.168.10.32",
       "192.168.10.33",
       "192.168.10.34",
+      “192.168.10.63”,
       "10.254.0.1",
       "kubernetes",
       "kubernetes.default",
@@ -175,6 +178,8 @@ ca-config.json  ca.csr  ca-csr.json  ca-key.pem  ca.pem
 ```
 
 - 如果 hosts 字段不为空则需要指定授权使用该证书的 **IP 或域名列表**，由于该证书后续被 `etcd` 集群和 `kubernetes master` 集群使用，所以上面分别指定了 `etcd` 集群、`kubernetes master` 集群的主机 IP 和 **kubernetes 服务的服务 IP**（一般是 `kube-apiserver` 指定的 `service-cluster-ip-range` 网段的第一个IP，如 10.254.0.1。
+
+  注意：master多节点高可用需要把**VIP**也一起加入证书。
 
 **生成 kubernetes 证书和私钥**
 
