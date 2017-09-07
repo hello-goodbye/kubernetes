@@ -1,9 +1,11 @@
-# 创建 CA 证书和秘钥
+# 创建TLS证书和秘钥
 
-`kubernetes` 系统各组件需要使用 `TLS` 证书对通信进行加密，本文档使用 `CloudFlare` 的 PKI 工具集 [cfssl](https://github.com/cloudflare/cfssl) 来生成 Certificate Authority (CA) 证书和秘钥文件，CA 是自签名的证书，用来签名后续创建的其它 TLS 证书。
+`kubernetes` 系统的各组件需要使用 `TLS` 证书对通信进行加密，本文档使用 `CloudFlare` 的 PKI 工具集 [cfssl](https://github.com/cloudflare/cfssl) 来生成 Certificate Authority (CA) 和其它证书；
 
 **生成的 CA 证书和秘钥文件如下：**
 
+- etcd.pem
+- etcd-key.pem
 - ca-key.pem
 - ca.pem
 - kubernetes-key.pem
@@ -15,7 +17,7 @@
 
 **使用证书的组件如下：**
 
-- etcd：使用 ca.pem、kubernetes-key.pem、kubernetes.pem；
+- etcd：使用 ca.pem、etcd-key.pem、etcd.pem；ETCD证书创建详见
 - kube-apiserver：使用 ca.pem、kubernetes-key.pem、kubernetes.pem；
 - kubelet：使用 ca.pem；
 - kube-proxy：使用 ca.pem、kube-proxy-key.pem、kube-proxy.pem；
@@ -153,8 +155,8 @@ ca-config.json  ca.csr  ca-csr.json  ca-key.pem  ca.pem
       "192.168.10.32",
       "192.168.10.33",
       "192.168.10.34",
-      “192.168.10.63”,
-      "10.254.0.1",
+      "192.168.10.63",
+	  "10.254.0.1",
       "kubernetes",
       "kubernetes.default",
       "kubernetes.default.svc",
@@ -179,8 +181,6 @@ ca-config.json  ca.csr  ca-csr.json  ca-key.pem  ca.pem
 
 - 如果 hosts 字段不为空则需要指定授权使用该证书的 **IP 或域名列表**，由于该证书后续被 `etcd` 集群和 `kubernetes master` 集群使用，所以上面分别指定了 `etcd` 集群、`kubernetes master` 集群的主机 IP 和 **kubernetes 服务的服务 IP**（一般是 `kube-apiserver` 指定的 `service-cluster-ip-range` 网段的第一个IP，如 10.254.0.1。
 
-  注意：master多节点高可用需要把**VIP**也一起加入证书。
-
 **生成 kubernetes 证书和私钥**
 
 ```
@@ -193,7 +193,8 @@ kubernetes.csr  kubernetes-csr.json  kubernetes-key.pem  kubernetes.pem
 或者直接在命令行上指定相关参数：
 
 ```
-echo '{"CN":"kubernetes","hosts":[""],"key":{"algo":"rsa","size":2048}}' | cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes -hostname="127.0.0.1,192.168.10.31,192.168.10.32,192.168.10.33,192.168.10.34,kubernetes,kubernetes.default" - | cfssljson -bare kubernetes
+echo '{"CN":"kubernetes","hosts":[""],"key":{"algo":"rsa","size":2048}}' | cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes -hostname="127.0.0.1,172.20.0.112,172.20.0.113,172.20.0.114,172.20.0.115,kubernetes,kubernetes.default" - | cfssljson -bare kubernetes
+
 ```
 
 ## 创建 admin 证书
@@ -300,8 +301,9 @@ $ openssl x509  -noout -text -in  kubernetes.pem
                 keyid:44:04:3B:60:BD:69:78:14:68:AF:A0:41:13:F6:17:07:13:63:58:CD
 
             X509v3 Subject Alternative Name:
-                DNS:kubernetes, DNS:kubernetes.default, DNS:kubernetes.default.svc, DNS:kubernetes.default.svc.cluster, DNS:kubernetes.default.svc.cluster.local, IP Address:127.0.0.1, IP Address:172.20.0.112, IP Address:192.168.10.31, IP Address:192.168.10.32, IP Address:192.168.10.33, IP Address:192.168.10.34, IP Address:10.254.0.1
+                DNS:kubernetes, DNS:kubernetes.default, DNS:kubernetes.default.svc, DNS:kubernetes.default.svc.cluster, DNS:kubernetes.default.svc.cluster.local, IP Address:127.0.0.1, IP Address:172.20.0.112, IP Address:172.20.0.113, IP Address:172.20.0.114, IP Address:172.20.0.115, IP Address:10.254.0.1
 ...
+
 ```
 
 - 确认 `Issuer` 字段的内容和 `ca-csr.json` 一致；
@@ -372,6 +374,7 @@ $ cfssl-certinfo -cert kubernetes.pem
 ```
 mkdir -p /etc/kubernetes/ssl
 cp *.pem /etc/kubernetes/ssl
+
 ```
 
 ## 参考
